@@ -1,0 +1,376 @@
+zabbix_export:
+  version: '6.4'
+  template_groups:
+    -
+      uuid: 36bff6c29af64692839d077febfc7079
+      name: 'Templates/Network devices'
+  templates:
+    -
+      uuid: 36827125268443fd974fc87a06ad303b
+      template: 'Asus Merlin Router by SNMP'
+      name: 'Asus Merlin Router by SNMP'
+      groups:
+        -
+          name: 'Templates/Network devices'
+      items:
+        -
+          uuid: 3da38775146f4ca6aee0cacbb89d4b3c
+          name: 'System Uptime'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.25.1.1.0
+          key: hrSystemUptime
+          units: uptime
+          preprocessing:
+            -
+              type: MULTIPLIER
+              parameters:
+                - '0.01'
+          tags:
+            -
+              tag: component
+              value: system
+          triggers:
+            -
+              uuid: 91d68710b33d447e9e80480a85b3e27e
+              expression: 'last(/Asus Merlin Router by SNMP/hrSystemUptime)<10m'
+              name: 'Device has been restarted or reinitialized'
+              event_name: '{HOST.NAME} has been restarted or reinitialized (uptime < 10m)'
+              priority: WARNING
+              manual_close: 'YES'
+        -
+          uuid: 39b2b99f5f86466ab9e6991795e80306
+          name: 'ICMP ping'
+          type: SIMPLE
+          key: icmpping
+          history: 7d
+          valuemap:
+            name: 'Service state'
+          tags:
+            -
+              tag: component
+              value: health
+            -
+              tag: component
+              value: network
+          triggers:
+            -
+              uuid: 6fd5934cb0524ba590471da11a1d0d84
+              expression: 'max(/Asus Merlin Router by SNMP/icmpping,#3)=0'
+              name: 'Unavailable by ICMP ping'
+              priority: HIGH
+              manual_close: 'YES'
+        -
+          uuid: 6801b888801d4ee6b390c131d9f18187
+          name: 'System Description'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.1.0
+          key: sysDescr
+          trends: '0'
+          value_type: CHAR
+          tags:
+            -
+              tag: component
+              value: system
+          triggers:
+            -
+              uuid: 2d250048e186426f844feb46a1d87fd8
+              expression: 'change(/Asus Merlin Router by SNMP/sysDescr)=1'
+              name: 'Operating system description has changed'
+              priority: INFO
+              manual_close: 'YES'
+        -
+          uuid: 61d750a497eb4a18a18cc6777830a80c
+          name: 'System Location'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.6.0
+          key: sysLocation
+          trends: '0'
+          value_type: CHAR
+          tags:
+            -
+              tag: component
+              value: system
+        -
+          uuid: aae3f80e7c4b40539313d3e7eb9c8460
+          name: 'System Name'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.2.1.1.5.0
+          key: sysName
+          trends: '0'
+          value_type: CHAR
+          tags:
+            -
+              tag: component
+              value: system
+        -
+          uuid: 7f469b49a58e41369c2281dfa4bfafec
+          name: 'SNMP agent availability'
+          type: INTERNAL
+          key: 'zabbix[host,snmp,available]'
+          history: 7d
+          valuemap:
+            name: zabbix.host.available
+          tags:
+            -
+              tag: component
+              value: system
+          triggers:
+            -
+              uuid: 2110819789404951aa4ec29031005b7c
+              expression: 'max(/Asus Merlin Router by SNMP/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
+              name: 'No SNMP data collection'
+              opdata: 'Current state: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              description: 'SNMP is not available for polling. Check the connectivity of a device and SNMP settings.'
+              manual_close: 'YES'
+      discovery_rules:
+        -
+          uuid: 6cc8249e90e14cecbcb53c2b50caf5b7
+          name: 'Network interfaces discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#IFOPERSTATUS},1.3.6.1.2.1.2.2.1.8,{#IFADMINSTATUS},1.3.6.1.2.1.2.2.1.7,{#IFDESCR},1.3.6.1.2.1.2.2.1.2,{#IFTYPE},1.3.6.1.2.1.2.2.1.3,{#IFNAME},1.3.6.1.2.1.31.1.1.1.1]'
+          key: net.if.discovery
+          delay: 1h
+          filter:
+            evaltype: AND
+          item_prototypes:
+            -
+              uuid: 4a059cdb2bff466ea8ac796f09a8c4c9
+              name: 'Interface {#IFNAME}: Admin status'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.7.{#SNMPINDEX}'
+              key: 'net.if.adminstatus[ifAdminStatus.{#SNMPINDEX}]'
+              trends: '0'
+              valuemap:
+                name: ifAdminStatus
+              tags:
+                -
+                  tag: component
+                  value: network
+                -
+                  tag: interface
+                  value: '{#IFNAME}'
+            -
+              uuid: 986d6c1073bf4d4285fda352768b8917
+              name: 'Interface {#IFNAME}: Bits received'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.10.{#SNMPINDEX}'
+              key: 'net.if.in[ifHCInOctets.{#SNMPINDEX}]'
+              units: bps
+              preprocessing:
+                -
+                  type: MULTIPLIER
+                  parameters:
+                    - '8'
+                -
+                  type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              tags:
+                -
+                  tag: component
+                  value: network
+                -
+                  tag: interface
+                  value: '{#IFNAME}'
+            -
+              uuid: 685639c2bbfa403682734e4032421feb
+              name: 'Interface {#IFNAME}: Bits sent'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.16.{#SNMPINDEX}'
+              key: 'net.if.out[ifHCOutOctets.{#SNMPINDEX}]'
+              units: bps
+              preprocessing:
+                -
+                  type: MULTIPLIER
+                  parameters:
+                    - '8'
+                -
+                  type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              tags:
+                -
+                  tag: component
+                  value: network
+                -
+                  tag: interface
+                  value: '{#IFNAME}'
+            -
+              uuid: 2d30add240c248fabc7d8c83d1238ec7
+              name: 'Interface {#IFNAME}: Operational status'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.8.{#SNMPINDEX}'
+              key: 'net.if.status[ifOperStatus.{#SNMPINDEX}]'
+              trends: '0'
+              valuemap:
+                name: ifOperStatus
+              tags:
+                -
+                  tag: component
+                  value: network
+                -
+                  tag: interface
+                  value: '{#IFNAME}'
+              trigger_prototypes:
+                -
+                  uuid: 244a1e2797784df5b0f65ff785a89faf
+                  expression: 'last(/Asus Merlin Router by SNMP/net.if.status[ifOperStatus.{#SNMPINDEX}])=2 and change(/Asus Merlin Router by SNMP/net.if.status[ifOperStatus.{#SNMPINDEX}])'
+                  name: 'Interface {#IFNAME}: Link down'
+                  opdata: 'Current state: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  description: |
+                    This trigger expression works as follows:
+                    1. Can be triggered if operations status is down.
+                    
+                    3. change(//net.if.status[{#IFNAME}]) - condition prevents firing of trigger if status did not change. It helps in cases, when interfaces were initially down.
+                    BEWARE, manual close will ceasefire until at least two status changes happens again!
+                -
+                  uuid: ef2c9c194f9b4c76b841456aa9573650
+                  expression: |
+                    {$IFCONTROL:"{#IFNAME}"}=1 
+                    and last(/Asus Merlin Router by SNMP/net.if.status[ifOperStatus.{#SNMPINDEX}])=2 and change(/Asus Merlin Router by SNMP/net.if.status[ifOperStatus.{#SNMPINDEX}])
+                  name: 'Interface {#IFNAME}: Link down (orig)'
+                  opdata: 'Current state: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  description: |
+                    This trigger expression works as follows:
+                    1. Can be triggered if operations status is down.
+                    2. Use $IFCONTROL macro with context "{#IFNAME}" to void trigger firing on specific interfaces. Values:
+                    -  0 : Marks an interface as not important. Trigger does not fire when interface is down.
+                    -  1 : Default value to fire the trigger when interface is down
+                    3. change(//net.if.status[{#IFNAME}]) - condition prevents firing of trigger if status did not change. It helps in cases, when interfaces were initially down.
+                    BEWARE, manual close will ceasefire until at least two status changes happens again!
+            -
+              uuid: 567f63f49f3f4e00b3614920eeefa163
+              name: 'Interface {#IFNAME}: Interface type'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.2.1.2.2.1.3.{#SNMPINDEX}'
+              key: 'net.if.type[ifType.{#SNMPINDEX}]'
+              delay: 1h
+              valuemap:
+                name: IANAifType
+              preprocessing:
+                -
+                  type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 1d
+              tags:
+                -
+                  tag: component
+                  value: network
+                -
+                  tag: interface
+                  value: '{#IFNAME}'
+          graph_prototypes:
+            -
+              uuid: 13fc3e01f4b64775a0238334d9a6f769
+              name: 'Interface {#IFNAME}: Network traffic'
+              yaxismax: '1000000000'
+              ymin_type_1: FIXED
+              ymax_type_1: FIXED
+              graph_items:
+                -
+                  color: 1A7C11
+                  item:
+                    host: 'Asus Merlin Router by SNMP'
+                    key: 'net.if.in[ifHCInOctets.{#SNMPINDEX}]'
+                -
+                  sortorder: '1'
+                  color: '274482'
+                  item:
+                    host: 'Asus Merlin Router by SNMP'
+                    key: 'net.if.out[ifHCOutOctets.{#SNMPINDEX}]'
+      macros:
+        -
+          macro: '{$NET.IF.IFADMINSTATUS.MATCHES}'
+          value: '^.*'
+        -
+          macro: '{$NET.IF.IFADMINSTATUS.NOT_MATCHES}'
+          value: ^2$
+          description: 'If the administrative status is down (2), then an interface is excluded.'
+        -
+          macro: '{$NET.IF.IFNAME.MATCHES}'
+          value: '^.*$'
+        -
+          macro: '{$NET.IF.IFNAME.NOT_MATCHES}'
+          value: '(^Software Loopback Interface|^NULL[0-9.]*$|^[Ll]o[0-9.]*$|^[Ss]ystem$|^Nu[0-9.]*$|^veth[0-9a-z]+$|docker[0-9]+|br-[a-z0-9]{12})'
+          description: 'It filters out loopbacks, nulls, docker veth links and docker0 bridge by default.'
+        -
+          macro: '{$SNMP.TIMEOUT}'
+          value: 5m
+      valuemaps:
+        -
+          uuid: 2e3bd071983d42899374faf245aaae9f
+          name: IANAifType
+          mappings:
+            -
+              value: '1'
+              newvalue: other
+            -
+              value: '6'
+              newvalue: ethernetCsmacd
+            -
+              value: '24'
+              newvalue: softwareLoopback
+        -
+          uuid: 5aac8e2b8f6d4165af922be2108dfef5
+          name: ifAdminStatus
+          mappings:
+            -
+              value: '1'
+              newvalue: up
+            -
+              value: '2'
+              newvalue: down
+            -
+              value: '3'
+              newvalue: testing
+        -
+          uuid: 9fe62aab773a4da0ae62e6bf9b000a12
+          name: ifOperStatus
+          mappings:
+            -
+              value: '1'
+              newvalue: up
+            -
+              value: '2'
+              newvalue: down
+            -
+              value: '3'
+              newvalue: testing
+            -
+              value: '4'
+              newvalue: unknown
+            -
+              value: '5'
+              newvalue: dormant
+            -
+              value: '6'
+              newvalue: notPresent
+            -
+              value: '7'
+              newvalue: lowerLayerDown
+        -
+          uuid: 104a1e57771140768bc2284adcb5c265
+          name: 'Service state'
+          mappings:
+            -
+              value: '0'
+              newvalue: Down
+            -
+              value: '1'
+              newvalue: Up
+        -
+          uuid: b39a66114d154df68b42c05e82f8c0df
+          name: zabbix.host.available
+          mappings:
+            -
+              value: '0'
+              newvalue: 'not available'
+            -
+              value: '1'
+              newvalue: available
+            -
+              value: '2'
+              newvalue: unknown
